@@ -1,0 +1,85 @@
+- become: yes
+  hosts: all
+  name: configure-server
+  tasks:
+    - name: Update all packages
+      apt:
+        upgrade: dist
+        update_cache: yes
+        cache_valid_time: 3600
+
+    ###################################################
+    # PROMETHEUS STEPS
+    ###################################################
+
+    - name: Run prometheus install script 
+      ansible.builtin.script: ./scripts/1-install.sh
+
+    - name: Copy prometheus config file
+      copy:
+        src: ./config_files/prometheus.yml
+        dest: /etc/prometheus/prometheus.yml
+        owner: root
+        group: root
+        mode: 0777
+
+    # ###################################################
+    # # NODE EXPORTER STEPS
+    # ###################################################
+
+    - name: Run node exporter install script 
+      ansible.builtin.script: ./scripts/2-node-exporter.sh
+    
+    - name: Restart service prometheus
+      ansible.builtin.service:
+        name: prometheus
+        state: restarted
+
+    # ###################################################
+    # # GRAFANA STEPS
+    # ###################################################
+
+    - name: Run grafana install script 
+      ansible.builtin.script: ./scripts/3-install-grafana.sh
+    
+    - name: Copy grafana datasource provisioning file
+      copy:
+        src: ./config_files/datasource-prometheus.yaml
+        dest: /etc/grafana/provisioning/datasources/
+        owner: root
+        group: root
+        mode: 0777
+
+    - name: Copy grafana dashboard provisioning file
+      copy:
+        src: ./config_files/dashboards.yaml
+        dest: /etc/grafana/provisioning/dashboards/
+        owner: root
+        group: root
+        mode: 0777
+
+    - name: Create grafana provision directory
+      file:
+        path: /var/lib/grafana/dashboards
+        state: directory
+
+    - name: Copy grafana dashboards json files
+      copy:
+        src: ./config_files/node-dashboard.json
+        dest: /var/lib/grafana/dashboards/
+        owner: root
+        group: root
+        mode: 0777
+    
+    - name: Copy grafana dashboards json files
+      copy:
+        src: ./config_files/node-dashboard-full.json
+        dest: /var/lib/grafana/dashboards/
+        owner: root
+        group: root
+        mode: 0777
+    
+    - name: Restart service grafana-server
+      ansible.builtin.service:
+        name: grafana-server
+        state: restarted
